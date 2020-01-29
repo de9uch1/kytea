@@ -19,6 +19,7 @@
 #include <cmath>
 #include <sstream>
 #include <iostream>
+#include <thread>
 #include <kytea/config.h>
 #include <kytea/kytea.h>
 #include <kytea/dictionary.h>
@@ -1146,6 +1147,31 @@ void Kytea::trainAll() {
 }
 
 // load the models and analyze the input
+void Kytea::analyzeWorker(int batchSize, std::vector<KyteaSentence*> &next, Kytea *kytea) {
+    KyteaConfig *config = kytea->config_;
+    int numTags = config->getNumTags();
+    if (config->getDoWS() && !config->getDoTags()) {
+        for (int sample = 0; sample < batchSize; ++sample) {
+            kytea->calculateWS(*next[sample]);
+        }
+    }
+    else if (!config->getDoWS() && config->getDoTags()) {
+        for (int sample = 0; sample < batchSize; ++sample) {
+            for(int i = 0; i < numTags; ++i)
+                if(config->getDoTag(i))
+                    kytea->calculateTags(*next[sample], i);
+        }
+    }
+    else if (config->getDoWS() && config->getDoTags()) {
+        for (int sample = 0; sample < batchSize; ++sample) {
+            kytea->calculateWS(*next[sample]);
+            for(int i = 0; i < numTags; ++i)
+                if(config->getDoTag(i))
+                    kytea->calculateTags(*next[sample], i);
+        }
+    }
+}
+
 void Kytea::analyze() {
     
     // on full input, disable word segmentation
@@ -1206,16 +1232,58 @@ void Kytea::analyze() {
     for(int i = 0; i < config_->getNumTags(); i++)
         out->setDoTag(i,config_->getDoTag(i));
 
-    KyteaSentence* next;
-    while((next = in->readSentence()) != 0) {
-        if(config_->getDoWS())
-            calculateWS(*next);
-        if(config_->getDoTags())
-            for(int i = 0; i < config_->getNumTags(); i++)
-                if(config_->getDoTag(i))
-                    calculateTags(*next, i);
-        out->writeSentence(next);
-        delete next;
+    int numThreads, batchSize;
+    if ((numThreads = config_->getNumThreads()) == 0)
+        numThreads = 1;
+    if ((batchSize = config_->getBatchSize()) == 0)
+        batchSize = 1;
+    int limitSize = numThreads * batchSize;
+
+    vector<Kytea*> kytea;
+    vector<vector<KyteaSentence*>> next;
+    for (int i = 0; i < numThreads; ++i) {
+        kytea.push_back(new Kytea(config_));
+        kytea[i]->readModel(config_->getModelFile().c_str());
+        next.emplace_back();
+        for (int j = 0; j < batchSize; ++j) {
+            next[i].emplace_back();
+        }
+    }
+    int numSamples = 0;
+    while((next[numSamples/batchSize][numSamples%batchSize] = in->readSentence()) != 0) {
+        numSamples++;
+        if (numSamples == limitSize) {
+            vector<thread> analyzer;
+            for (int workerId = 0; workerId < numThreads; ++workerId) {
+                analyzer.emplace_back(&analyzeWorker, batchSize, ref(next[workerId]), kytea[workerId]);
+            }
+            for (int workerId = 0; workerId < numThreads; ++workerId) {
+                analyzer[workerId].join();
+            }
+            for (int workerId = 0; workerId < numThreads; ++workerId) {
+                for (int sample = 0; sample < batchSize; ++sample) {
+                    out->writeSentence(next[workerId][sample]);
+                    delete next[workerId][sample];
+                }
+            }
+            numSamples = 0;
+        }
+    }
+    vector<thread> analyzer;
+    int numRestWorkers = numSamples / batchSize;
+    int lastBatchSize = numSamples % batchSize;
+    for (int workerId = 0; workerId <= numRestWorkers; ++workerId) {
+        analyzer.emplace_back(&analyzeWorker, (workerId == numRestWorkers ? lastBatchSize : batchSize), ref(next[workerId]), kytea[workerId]);
+    }
+    for (int workerId = 0; workerId <= numRestWorkers; ++workerId) {
+        analyzer[workerId].join();
+    }
+    for (int workerId = 0; workerId <= numRestWorkers; ++workerId) {
+        int bsz = (workerId == numRestWorkers ? lastBatchSize : batchSize);
+        for (int sample = 0; sample < bsz; ++sample) {
+            out->writeSentence(next[workerId][sample]);
+            delete next[workerId][sample];
+        }
     }
 
     delete in;

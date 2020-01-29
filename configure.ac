@@ -27,6 +27,8 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_LIBTOOL
 
+AC_CHECK_LIB(pthread, pthread_create)
+
 # set CFLAGS and CXXFLAGS for maximal optimization
 if test -n "${CXXFLAGS}"; then
   user_set_cxxflags=yes

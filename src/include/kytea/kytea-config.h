@@ -108,6 +108,10 @@ private:
     //  tagMax: the maximum number of tags to return for a word
     unsigned tagMax_;
 
+    // for multi-threading
+    int numThreads_;
+    int batchSize_;
+
     // check argument legality
     void ch(const char * n, const char* v);
 
@@ -186,6 +190,9 @@ public:
     int getNumTags() const { return numTags_; }
     bool getGlobal(int i) const { return i < (int)global_.size() && global_[i]; }
 
+    const int getNumThreads() const { return numThreads_; }
+    const int getBatchSize() const { return batchSize_; }
+
     const std::vector<std::string> & getArguments() const { return args_; }
     
     // setters
@@ -230,6 +237,9 @@ public:
     void setFeatureIn(const std::string & featIn) { featIn_ = featIn; }
     void setFeatureOut(const std::string & featOut) { featOut_ = featOut; }
     void setWsConstraint(const std::string & wsConstraint) { wsConstraint_ = wsConstraint; }
+
+    void setNumThreads(int v) { numThreads_ = v; }
+    void setBatchSize(int v) { batchSize_ = v; }
 
     std::ostream * getFeatureOutStream();
     void closeFeatureOutStream();

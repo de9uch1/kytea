@@ -98,6 +98,7 @@ public:
     //  "trainAll" performs full training of Kytea from start to finish
     void trainAll();
     //  "analyze" loads models, and analyzes the full corpus input
+    static void analyzeWorker(int batchSize, std::vector<KyteaSentence*> &next, Kytea *kytea);
     void analyze();
 
 

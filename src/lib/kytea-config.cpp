@@ -127,6 +127,8 @@ void KyteaConfig::printUsage() {
 "  -wsconst Specifies character types to not be segmented (e.g. D for digits)" << endl <<
 "  -unkbeam The width of the beam to use in beam search for unknown words " << endl <<
 "           (default 50, 0 for full search)" << endl <<
+"  -threads The number of threads" << endl <<
+"  -bsz     The number of sentences per each batch" << endl <<
 "  -debug   The debugging level (0=silent, 1=simple, 2=detailed)" << endl <<
 "Format Options: " << endl <<
 "  -in      The formatting of the input  (raw/tok/full/part/conf, default raw)" << endl <<
@@ -261,6 +263,9 @@ unsigned KyteaConfig::parseRunArg(const char * n, const char * v) {
     else if(!strcmp(n, "-unkbeam"))  { ch(n,v); setUnkBeam(util_->parseInt(v)); }
     else if(!strcmp(n, "-debug"))    { ch(n,v); setDebug(util_->parseInt(v)); }
 
+    else if(!strcmp(n, "-threads"))  { ch(n,v); setNumThreads(util_->parseInt(v)); }
+    else if(!strcmp(n, "-bsz"))      { ch(n,v); setBatchSize(util_->parseInt(v)); }
+
     // formatting options
     else if(!strcmp(n, "-wordbound"))     { ch(n,v); setWordBound(v); }
     else if(!strcmp(n, "-tagbound"))      { ch(n,v); setTagBound(v); }
@@ -323,7 +328,8 @@ KyteaConfig::KyteaConfig(const KyteaConfig & rhs)
                  tagBound_(rhs.tagBound_), elemBound_(rhs.elemBound_), 
                  unkBound_(rhs.unkBound_), noBound_(rhs.noBound_), 
                  hasBound_(rhs.hasBound_), skipBound_(rhs.skipBound_), 
-                 escape_(rhs.escape_), numTags_(rhs.numTags_), tagMax_(rhs.tagMax_)
+                 escape_(rhs.escape_), numTags_(rhs.numTags_), tagMax_(rhs.tagMax_),
+                 numThreads_(rhs.numThreads_), batchSize_(rhs.batchSize_)
 {
 
 }
